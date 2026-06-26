@@ -89,7 +89,7 @@
       </div>
     </div>
     <div class="filters-bar card">
-      <input type="search" id="search-input" placeholder="🔍 Rechercher fournisseur, commentaire…" oninput="loadFactures()" class="search-input">
+      <input type="search" id="search-input" placeholder="🔍 Rechercher fournisseur, commentaire…" oninput="currentPage=1;loadFactures()" class="search-input">
       <select id="filter-mois" onchange="loadFactures()" class="filter-select">
         <option value="">Tous les mois</option>
       </select>
@@ -113,6 +113,11 @@
       <div id="factures-empty" class="empty-state" style="display:none">
         <div class="empty-icon">🧾</div><p>Aucune facture trouvée</p>
         <button class="btn-primary mt8" onclick="openModal()">Ajouter une facture</button>
+      </div>
+      <div id="pagination" class="pagination" style="display:none">
+        <button class="btn-ghost btn-sm" id="page-prev" onclick="changePage(-1)">← Précédent</button>
+        <span id="page-info" style="font-size:13px;color:var(--text2);padding:0 12px"></span>
+        <button class="btn-ghost btn-sm" id="page-next" onclick="changePage(1)">Suivant →</button>
       </div>
     </div>
   </section>

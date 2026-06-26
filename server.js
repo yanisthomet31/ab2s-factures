@@ -46,23 +46,32 @@ async function initDB() {
 // ─── Routes Factures ──────────────────────────────────
 app.get('/api/factures', async (req, res) => {
   try {
-    const { search, statut, action, mois, annee } = req.query;
-    let text = 'SELECT * FROM factures WHERE 1=1';
+    const { search, statut, action, mois, annee, page, limit } = req.query;
+    const pageSize = parseInt(limit) || 50;
+    const offset = (parseInt(page) > 1 ? parseInt(page) - 1 : 0) * pageSize;
+
+    let where = 'WHERE 1=1';
     const params = [];
 
     if (search) {
       params.push(`%${search}%`);
       const n = params.length;
-      text += ` AND (fournisseur ILIKE $${n} OR "comment" ILIKE $${n})`;
+      where += ` AND (fournisseur ILIKE $${n} OR "comment" ILIKE $${n})`;
     }
-    if (statut) { params.push(statut); text += ` AND statut = $${params.length}`; }
-    if (action) { params.push(action); text += ` AND action = $${params.length}`; }
-    if (annee)  { params.push(annee);  text += ` AND EXTRACT(YEAR FROM periode) = $${params.length}`; }
-    if (mois)   { params.push(mois);   text += ` AND TO_CHAR(periode,'YYYY-MM') = $${params.length}`; }
+    if (statut) { params.push(statut); where += ` AND statut = $${params.length}`; }
+    if (action) { params.push(action); where += ` AND action = $${params.length}`; }
+    if (annee)  { params.push(annee);  where += ` AND EXTRACT(YEAR FROM periode) = $${params.length}`; }
+    if (mois)   { params.push(mois);   where += ` AND TO_CHAR(periode,'YYYY-MM') = $${params.length}`; }
 
-    text += ' ORDER BY periode DESC NULLS LAST, created_at DESC';
-    const r = await query(text, params);
-    res.json(r.rows);
+    const countR = await query(`SELECT COUNT(*) n FROM factures ${where}`, params);
+    const total = parseInt(countR.rows[0].n);
+
+    params.push(pageSize, offset);
+    const r = await query(
+      `SELECT * FROM factures ${where} ORDER BY periode DESC NULLS LAST, created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+    res.json({ rows: r.rows, total, page: parseInt(page) || 1, pageSize });
   } catch(e) {
     console.error('GET /api/factures', e.message);
     res.status(500).json({ error: e.message });

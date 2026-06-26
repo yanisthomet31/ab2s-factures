@@ -77,6 +77,7 @@ function onAnneeChange() {
 
 // Appelé quand on change l'année sur l'onglet Factures
 async function onFacturesAnneeChange() {
+  currentPage = 1;
   document.getElementById('filter-mois').value = '';
   await refreshMoisFilter();
   loadFactures();
@@ -201,6 +202,13 @@ function buildStatutChart(data) {
 }
 
 // ─── Factures ─────────────────────────────────────────
+let currentPage = 1;
+
+function changePage(delta) {
+  currentPage += delta;
+  loadFactures();
+}
+
 async function loadFactures() {
   const params = new URLSearchParams();
   const search = document.getElementById('search-input')?.value;
@@ -213,23 +221,41 @@ async function loadFactures() {
   if (mois)   params.append('mois', mois);
   if (statut) params.append('statut', statut);
   if (action) params.append('action', action);
+  params.append('page', currentPage);
 
   const data = await fetchJSON('/api/factures?' + params.toString());
   if (!data) return;
 
-  document.getElementById('factures-count').textContent = `${data.length} facture${data.length > 1 ? 's' : ''}`;
+  const { rows, total, page, pageSize } = data;
+  const totalPages = Math.ceil(total / pageSize);
+
+  document.getElementById('factures-count').textContent =
+    `${total} facture${total > 1 ? 's' : ''} — page ${page}/${totalPages || 1}`;
 
   const tbody = document.getElementById('factures-body');
   const empty = document.getElementById('factures-empty');
+  const pagination = document.getElementById('pagination');
 
-  if (!data.length) {
+  if (!rows.length) {
     tbody.innerHTML = '';
     empty.style.display = '';
+    pagination.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
+
+  // Pagination
+  if (totalPages > 1) {
+    pagination.style.display = '';
+    document.getElementById('page-info').textContent = `Page ${page} / ${totalPages}`;
+    document.getElementById('page-prev').disabled = page <= 1;
+    document.getElementById('page-next').disabled = page >= totalPages;
+  } else {
+    pagination.style.display = 'none';
+  }
+
   const now = Date.now();
-  tbody.innerHTML = data.map(f => {
+  tbody.innerHTML = rows.map(f => {
     const urgent = f.statut === 'À traiter' && (now - new Date(f.created_at).getTime()) > 30 * 86400000;
     const urgTag = urgent ? '<span class="urgence-tag">+30j</span>' : '';
     const btnRecup = f.statut !== 'Récupérée'
@@ -251,6 +277,7 @@ async function loadFactures() {
 }
 
 function resetFilters() {
+  currentPage = 1;
   document.getElementById('search-input').value   = '';
   document.getElementById('filter-mois').value    = '';
   document.getElementById('filter-statut').value  = '';
