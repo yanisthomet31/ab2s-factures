@@ -1,10 +1,27 @@
 const API = '';
 
 // ─── Init ──────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('date-today').textContent = new Date().toLocaleDateString('fr-FR', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  await populateMoisFilter();
   showTab('dashboard');
 });
+
+async function populateMoisFilter() {
+  const kpi = await fetchJSON('/api/kpi');
+  if (!kpi) return;
+  const sel = document.getElementById('filter-mois');
+  if (!sel) return;
+  const mois = [...new Set(kpi.par_mois.map(d => d.mois))].sort().reverse();
+  mois.forEach(m => {
+    const [y, mo] = m.split('-');
+    const label = new Date(y, mo - 1).toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+    sel.appendChild(opt);
+  });
+}
 
 // ─── Navigation ───────────────────────────────────────
 function showTab(name) {
@@ -24,15 +41,32 @@ async function loadDashboard() {
   const kpi = await fetchJSON('/api/kpi');
   if (!kpi) return;
 
-  document.getElementById('d-total').textContent  = kpi.total;
-  document.getElementById('d-traiter').textContent = kpi.a_traiter;
-  document.getElementById('d-cours').textContent  = kpi.en_cours;
-  document.getElementById('d-recup').textContent  = kpi.recuperees;
-  document.getElementById('d-montant').textContent = formatEUR(kpi.montant_total);
+  document.getElementById('d-total').textContent        = kpi.total;
+  document.getElementById('d-traiter').textContent      = kpi.a_traiter;
+  document.getElementById('d-cours').textContent        = kpi.en_cours;
+  document.getElementById('d-recup').textContent        = kpi.recuperees;
+  document.getElementById('d-impossible').textContent   = kpi.impossibles;
+  document.getElementById('d-mont-traiter').textContent  = formatEUR(kpi.montant_a_traiter);
+  document.getElementById('d-mont-recup').textContent    = formatEUR(kpi.montant_recupere);
+  document.getElementById('d-mont-impossible').textContent = formatEUR(kpi.montant_impossible);
 
   const badge = document.getElementById('badge-traiter');
   if (kpi.a_traiter > 0) { badge.textContent = kpi.a_traiter; badge.style.display = ''; }
   else badge.style.display = 'none';
+
+  // Mise à jour filtre mois si vide
+  const sel = document.getElementById('filter-mois');
+  if (sel && sel.options.length <= 1) {
+    const moisList = [...new Set(kpi.par_mois.map(d => d.mois))].sort().reverse();
+    moisList.forEach(m => {
+      const [y, mo] = m.split('-');
+      const label = new Date(y, mo - 1).toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+      sel.appendChild(opt);
+    });
+  }
 
   buildMoisChart(kpi.par_mois);
   buildStatutChart(kpi.par_statut);
@@ -105,11 +139,11 @@ function buildStatutChart(data) {
 async function loadFactures() {
   const params = new URLSearchParams();
   const search = document.getElementById('search-input')?.value;
-  const type   = document.getElementById('filter-type')?.value;
+  const mois   = document.getElementById('filter-mois')?.value;
   const statut = document.getElementById('filter-statut')?.value;
   const action = document.getElementById('filter-action')?.value;
   if (search) params.append('search', search);
-  if (type)   params.append('type', type);
+  if (mois)   params.append('mois', mois);
   if (statut) params.append('statut', statut);
   if (action) params.append('action', action);
 
@@ -144,14 +178,22 @@ async function loadFactures() {
 
 function resetFilters() {
   document.getElementById('search-input').value = '';
-  document.getElementById('filter-type').value = '';
+  document.getElementById('filter-mois').value = '';
   document.getElementById('filter-statut').value = '';
   document.getElementById('filter-action').value = '';
   loadFactures();
 }
 
 // ─── KPI ─────────────────────────────────────────────
-let kChartType = null, kChartStatut = null, kChartMontant = null;
+let kChartType = null, kChartStatut = null, kChartMontant = null, kChartMoisNb = null, kChartMoisMont = null;
+
+const STATUT_COLORS = {
+  'À traiter': '#D32F2F',
+  'En cours': '#F57C00',
+  'Récupérée': '#388E3C',
+  'Annulée': '#9E9E9E',
+  'Impossible à récupérer': '#6A1B9A'
+};
 
 async function loadKPI() {
   const kpi = await fetchJSON('/api/kpi');
@@ -171,11 +213,10 @@ async function loadKPI() {
     options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{font:{size:11}} } } }
   });
 
-  const sColors = {'À traiter':'#D32F2F','En cours':'#F57C00','Récupérée':'#388E3C','Annulée':'#9E9E9E','Impossible à récupérer':'#6A1B9A'};
   if (kChartStatut) kChartStatut.destroy();
   kChartStatut = new Chart(document.getElementById('k-chart-statut'), {
     type:'doughnut',
-    data:{ labels: kpi.par_statut.map(d=>d.statut), datasets:[{ data: kpi.par_statut.map(d=>d.n), backgroundColor: kpi.par_statut.map(d=>sColors[d.statut]||'#1A237E'), borderWidth:2 }] },
+    data:{ labels: kpi.par_statut.map(d=>d.statut), datasets:[{ data: kpi.par_statut.map(d=>d.n), backgroundColor: kpi.par_statut.map(d=>STATUT_COLORS[d.statut]||'#1A237E'), borderWidth:2 }] },
     options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{font:{size:11}} } } }
   });
 
@@ -187,6 +228,51 @@ async function loadKPI() {
       datasets:[{ label:'Montant (€)', data: kpi.par_type.map(d=>parseFloat(d.montant)), backgroundColor: colors, borderRadius:5 }]
     },
     options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
+  });
+
+  // Graphiques par mois x statut
+  const statutsActifs = ['À traiter','En cours','Récupérée','Impossible à récupérer'];
+  const moisLabels = [...new Set(kpi.par_mois_statut.map(d => d.mois))].sort();
+  const moisAffich = moisLabels.map(m => { const [y,mo]=m.split('-'); return new Date(y,mo-1).toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}); });
+
+  // Index des données par mois+statut
+  const idx = {};
+  kpi.par_mois_statut.forEach(d => { idx[`${d.mois}|${d.statut}`] = d; });
+
+  const datasetsNb = statutsActifs.map(s => ({
+    label: s,
+    data: moisLabels.map(m => parseInt(idx[`${m}|${s}`]?.n || 0)),
+    backgroundColor: STATUT_COLORS[s],
+    borderRadius: 4
+  }));
+
+  const datasetsMont = statutsActifs.map(s => ({
+    label: s,
+    data: moisLabels.map(m => parseFloat(idx[`${m}|${s}`]?.montant || 0)),
+    backgroundColor: STATUT_COLORS[s],
+    borderRadius: 4
+  }));
+
+  if (kChartMoisNb) kChartMoisNb.destroy();
+  kChartMoisNb = new Chart(document.getElementById('k-chart-mois-statut-nb'), {
+    type:'bar',
+    data:{ labels: moisAffich, datasets: datasetsNb },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ position:'bottom', labels:{font:{size:11}} } },
+      scales:{ x:{stacked:true}, y:{stacked:true, beginAtZero:true, title:{display:true,text:'Nb factures'}} }
+    }
+  });
+
+  if (kChartMoisMont) kChartMoisMont.destroy();
+  kChartMoisMont = new Chart(document.getElementById('k-chart-mois-statut-mont'), {
+    type:'bar',
+    data:{ labels: moisAffich, datasets: datasetsMont },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ position:'bottom', labels:{font:{size:11}} } },
+      scales:{ x:{stacked:true}, y:{stacked:true, beginAtZero:true, title:{display:true,text:'Montant (€)'}} }
+    }
   });
 }
 

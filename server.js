@@ -47,7 +47,7 @@ async function initDB() {
 // ─── Routes Factures ──────────────────────────────────
 app.get('/api/factures', async (req, res) => {
   try {
-    const { search, type, statut, action } = req.query;
+    const { search, type, statut, action, mois } = req.query;
     let text = 'SELECT * FROM factures WHERE 1=1';
     const params = [];
 
@@ -59,6 +59,7 @@ app.get('/api/factures', async (req, res) => {
     if (type)   { params.push(type);   text += ` AND type = $${params.length}`; }
     if (statut) { params.push(statut); text += ` AND statut = $${params.length}`; }
     if (action) { params.push(action); text += ` AND action = $${params.length}`; }
+    if (mois)   { params.push(mois);   text += ` AND TO_CHAR(periode,'YYYY-MM') = $${params.length}`; }
 
     text += ' ORDER BY periode DESC NULLS LAST, created_at DESC';
     const r = await query(text, params);
@@ -177,17 +178,26 @@ function parseDate(str) {
 // ─── KPI ─────────────────────────────────────────────
 app.get('/api/kpi', async (req, res) => {
   try {
-    const [totR, montR, traiterR, coursR, recupereesR, typeR, statutR, moisR] = await Promise.all([
+    const [totR, montR, traiterR, coursR, recupereesR, impossibleR,
+           montTraiterR, montRecupR, montImpossibleR,
+           typeR, statutR, moisR, moisStatutR] = await Promise.all([
       query('SELECT COUNT(*) n FROM factures'),
       query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut NOT IN ('Annulée','Impossible à récupérer')"),
       query("SELECT COUNT(*) n FROM factures WHERE statut='À traiter'"),
       query("SELECT COUNT(*) n FROM factures WHERE statut='En cours'"),
       query("SELECT COUNT(*) n FROM factures WHERE statut='Récupérée'"),
+      query("SELECT COUNT(*) n FROM factures WHERE statut='Impossible à récupérer'"),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut IN ('À traiter','En cours')"),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut='Récupérée'"),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut='Impossible à récupérer'"),
       query('SELECT type, COUNT(*) n, COALESCE(SUM(montant),0) montant FROM factures GROUP BY type ORDER BY n DESC'),
       query('SELECT statut, COUNT(*) n FROM factures GROUP BY statut'),
       query(`SELECT TO_CHAR(periode,'YYYY-MM') mois, COUNT(*) n, COALESCE(SUM(montant),0) montant
              FROM factures WHERE periode IS NOT NULL
-             GROUP BY mois ORDER BY mois DESC LIMIT 12`)
+             GROUP BY mois ORDER BY mois ASC LIMIT 12`),
+      query(`SELECT TO_CHAR(periode,'YYYY-MM') mois, statut, COUNT(*) n, COALESCE(SUM(montant),0) montant
+             FROM factures WHERE periode IS NOT NULL
+             GROUP BY mois, statut ORDER BY mois ASC`)
     ]);
     res.json({
       total: parseInt(totR.rows[0].n),
@@ -195,9 +205,14 @@ app.get('/api/kpi', async (req, res) => {
       a_traiter: parseInt(traiterR.rows[0].n),
       en_cours: parseInt(coursR.rows[0].n),
       recuperees: parseInt(recupereesR.rows[0].n),
+      impossibles: parseInt(impossibleR.rows[0].n),
+      montant_a_traiter: parseFloat(montTraiterR.rows[0].s),
+      montant_recupere: parseFloat(montRecupR.rows[0].s),
+      montant_impossible: parseFloat(montImpossibleR.rows[0].s),
       par_type: typeR.rows,
       par_statut: statutR.rows,
-      par_mois: moisR.rows.reverse()
+      par_mois: moisR.rows,
+      par_mois_statut: moisStatutR.rows
     });
   } catch(e) {
     console.error('GET /api/kpi', e.message);

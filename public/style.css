@@ -66,6 +66,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; f
 .kpi-label { font-size:12px; opacity:.85; font-weight:500; margin-bottom:8px; }
 .kpi-value { font-size:28px; font-weight:800; letter-spacing:-1px; }
 .kpi-icon { position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:36px; opacity:.25; }
+.kpi-grid-montants { grid-template-columns: repeat(3, 1fr); margin-top:0; }
+.kpi-montant { padding:22px 24px; }
+.kpi-value-lg { font-size:22px; font-weight:800; letter-spacing:-0.5px; margin-top:6px; }
 
 .dash-row { display:flex; gap:16px; align-items:flex-start; }
 
