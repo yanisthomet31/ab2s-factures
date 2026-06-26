@@ -385,11 +385,7 @@ async function saveFacture() {
   document.getElementById('modal-overlay').classList.remove('open');
   toast(id ? 'Facture mise à jour ✓' : 'Facture ajoutée ✓');
 
-  // Recharge seulement l'onglet actif
-  const activeTab = document.querySelector('.tab-section.active')?.id?.replace('tab-', '');
-  if (activeTab === 'dashboard') loadDashboard();
-  else if (activeTab === 'factures') loadFactures();
-  else if (activeTab === 'kpi') loadKPI();
+  await refreshAll();
 }
 
 async function deleteFacture() {
@@ -399,6 +395,12 @@ async function deleteFacture() {
   document.getElementById('modal-overlay').classList.remove('open');
   toast('Facture supprimée');
 
+  await refreshAll();
+}
+
+// Rafraîchit les sélecteurs d'années + l'onglet actif
+async function refreshAll() {
+  await initAnnees();
   const activeTab = document.querySelector('.tab-section.active')?.id?.replace('tab-', '');
   if (activeTab === 'dashboard') loadDashboard();
   else if (activeTab === 'factures') loadFactures();
