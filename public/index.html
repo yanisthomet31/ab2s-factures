@@ -61,6 +61,11 @@
       <div class="kpi-card green"><div class="kpi-label">Récupérées</div><div class="kpi-value" id="d-recup">—</div><div class="kpi-icon">✅</div></div>
       <div class="kpi-card purple"><div class="kpi-label">Impossible à récupérer</div><div class="kpi-value" id="d-impossible">—</div><div class="kpi-icon">🚫</div></div>
     </div>
+    <div class="taux-bar card" id="taux-bar">
+      <span class="taux-label">Taux de récupération</span>
+      <div class="taux-track"><div class="taux-fill" id="taux-fill"></div></div>
+      <span class="taux-pct" id="taux-pct">—</span>
+    </div>
     <div class="dash-row mt12">
       <div class="card flex-2"><div class="card-header"><h3>Évolution mensuelle</h3></div><canvas id="chart-mois" height="180"></canvas></div>
       <div class="card flex-1"><div class="card-header"><h3>Par statut</h3></div><canvas id="chart-statut" height="180"></canvas></div>
@@ -102,7 +107,7 @@
     </div>
     <div class="card mt12">
       <table class="table">
-        <thead><tr><th>Type</th><th>Fournisseur</th><th>Montant</th><th>Période</th><th>Action</th><th>Statut</th><th>Commentaire</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Type</th><th>Fournisseur</th><th>Montant</th><th>Période</th><th>Action</th><th>Statut</th><th>Commentaire</th><th>Actions</th><th></th></tr></thead>
         <tbody id="factures-body"></tbody>
       </table>
       <div id="factures-empty" class="empty-state" style="display:none">

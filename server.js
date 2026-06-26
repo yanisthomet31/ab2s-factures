@@ -108,6 +108,17 @@ app.put('/api/factures/:id', async (req, res) => {
   }
 });
 
+// Mise à jour rapide du statut uniquement
+app.patch('/api/factures/:id/statut', async (req, res) => {
+  try {
+    await query(`UPDATE factures SET statut=$1, updated_at=NOW() WHERE id=$2`,
+      [req.body.statut, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/factures/:id', async (req, res) => {
   try {
     await query('DELETE FROM factures WHERE id=$1', [req.params.id]);

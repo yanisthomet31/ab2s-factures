@@ -125,6 +125,12 @@ async function loadDashboard() {
   if (kpi.a_traiter > 0) { badge.textContent = kpi.a_traiter; badge.style.display = ''; }
   else badge.style.display = 'none';
 
+  // Taux de récupération
+  const base = kpi.total - kpi.impossibles;
+  const taux = base > 0 ? Math.round((kpi.recuperees / base) * 100) : 0;
+  document.getElementById('taux-pct').textContent = taux + ' %';
+  document.getElementById('taux-fill').style.width = taux + '%';
+
   buildMoisChart(kpi.par_mois);
   buildStatutChart(kpi.par_statut);
 
@@ -222,17 +228,26 @@ async function loadFactures() {
     return;
   }
   empty.style.display = 'none';
-  tbody.innerHTML = data.map(f => `
-    <tr onclick="openModal(${f.id})">
+  const now = Date.now();
+  tbody.innerHTML = data.map(f => {
+    const urgent = f.statut === 'À traiter' && (now - new Date(f.created_at).getTime()) > 30 * 86400000;
+    const urgTag = urgent ? '<span class="urgence-tag">+30j</span>' : '';
+    const btnRecup = f.statut !== 'Récupérée'
+      ? `<button class="btn-recup" onclick="event.stopPropagation();marquerRecuperee(${f.id})">✅ Récupérée</button>`
+      : '';
+    return `
+    <tr class="${urgent ? 'row-urgent' : ''}" onclick="openModal(${f.id})">
       <td><span class="type-badge">${esc(f.type)}</span></td>
-      <td><strong>${esc(f.fournisseur)}</strong></td>
+      <td><strong>${esc(f.fournisseur)}</strong>${urgTag}</td>
       <td>${formatEUR(f.montant)}</td>
       <td>${formatDate(f.periode)}</td>
       <td>${esc(f.action)}</td>
       <td>${statutBadge(f.statut)}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${esc(f.comment||'')}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${esc(f.comment||'')}</td>
       <td><button class="btn-ghost btn-sm" onclick="event.stopPropagation();openModal(${f.id})">✏️</button></td>
-    </tr>`).join('');
+      <td>${btnRecup}</td>
+    </tr>`;
+  }).join('');
 }
 
 function resetFilters() {
@@ -419,6 +434,21 @@ async function refreshAll() {
   if (activeTab === 'dashboard') loadDashboard();
   else if (activeTab === 'factures') loadFactures();
   else if (activeTab === 'kpi') loadKPI();
+}
+
+// ─── Marquer récupérée en un clic ────────────────────
+async function marquerRecuperee(id) {
+  const r = await fetch(`/api/factures/${id}/statut`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statut: 'Récupérée' })
+  });
+  if (r.ok) {
+    toast('Facture marquée comme récupérée ✓');
+    await refreshAll();
+  } else {
+    toast('Erreur lors de la mise à jour', true);
+  }
 }
 
 // ─── Import CSV ───────────────────────────────────────
