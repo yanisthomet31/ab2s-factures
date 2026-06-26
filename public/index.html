@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AB2S Sécurité — Suivi Factures</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="assets/logo.png" alt="AB2S" onerror="this.style.display='none';document.getElementById('lf').style.display='flex'">
+    <div id="lf" class="logo-fallback" style="display:none"><span class="logo-fb-title">AB2S</span><span class="logo-fb-sub">SÉCURITÉ</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><span class="nav-icon">📊</span><span>Tableau de bord</span></a>
+    <a class="nav-item" data-tab="factures" onclick="showTab('factures')"><span class="nav-icon">🧾</span><span>Factures</span><span class="badge" id="badge-traiter" style="display:none">0</span></a>
+    <a class="nav-item" data-tab="kpi" onclick="showTab('kpi')"><span class="nav-icon">📈</span><span>Statistiques</span></a>
+    <a class="nav-item" data-tab="import" onclick="showTab('import')"><span class="nav-icon">📥</span><span>Import / Export</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="btn-export" onclick="exportCSV()">⬇ Exporter CSV</button>
+    <div class="sidebar-version">v1.0 — Suivi Factures</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <section id="tab-dashboard" class="tab-section active">
+    <div class="page-header">
+      <div><h1>Tableau de bord</h1><p class="page-sub" id="date-today"></p></div>
+      <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-label">Total factures</div><div class="kpi-value" id="d-total">—</div><div class="kpi-icon">🧾</div></div>
+      <div class="kpi-card red"><div class="kpi-label">À traiter</div><div class="kpi-value" id="d-traiter">—</div><div class="kpi-icon">⚠️</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">En cours</div><div class="kpi-value" id="d-cours">—</div><div class="kpi-icon">🔄</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Récupérées</div><div class="kpi-value" id="d-recup">—</div><div class="kpi-icon">✅</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Montant total estimé</div><div class="kpi-value" id="d-montant">—</div><div class="kpi-icon">💶</div></div>
+    </div>
+    <div class="dash-row mt16">
+      <div class="card flex-2"><div class="card-header"><h3>Évolution mensuelle</h3></div><canvas id="chart-mois" height="180"></canvas></div>
+      <div class="card flex-1"><div class="card-header"><h3>Par statut</h3></div><canvas id="chart-statut" height="180"></canvas></div>
+    </div>
+    <div class="card mt16">
+      <div class="card-header"><h3>Factures à traiter en priorité</h3><a onclick="showTab('factures')" class="link">Voir tout →</a></div>
+      <table class="table"><thead><tr><th>Type</th><th>Fournisseur</th><th>Montant</th><th>Période</th><th>Action</th><th>Statut</th></tr></thead>
+      <tbody id="dash-priority-body"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ═══ FACTURES ═══ -->
+  <section id="tab-factures" class="tab-section">
+    <div class="page-header">
+      <div><h1>Factures</h1><p class="page-sub" id="factures-count">Chargement…</p></div>
+      <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+    </div>
+    <div class="filters-bar card">
+      <input type="search" id="search-input" placeholder="🔍 Rechercher fournisseur, commentaire…" oninput="loadFactures()" class="search-input">
+      <select id="filter-type" onchange="loadFactures()" class="filter-select">
+        <option value="">Tous les types</option>
+        <option>Matériels/Fournitures</option><option>Hôtel/Déplacement</option>
+        <option>Restauration</option><option>Dépenses mensuelles</option>
+        <option>Chèques</option><option>Virements</option><option>Autres</option>
+      </select>
+      <select id="filter-statut" onchange="loadFactures()" class="filter-select">
+        <option value="">Tous les statuts</option>
+        <option>À traiter</option><option>En cours</option>
+        <option>Récupérée</option><option>Annulée</option><option>Impossible à récupérer</option>
+      </select>
+      <select id="filter-action" onchange="loadFactures()" class="filter-select">
+        <option value="">Toutes les actions</option>
+        <option>Plateforme en ligne</option><option>Appeler fournisseur</option>
+        <option>Envoyer mail</option><option>Relance comptable</option><option>En attente</option>
+      </select>
+      <button class="btn-ghost" onclick="resetFilters()">✕ Réinitialiser</button>
+    </div>
+    <div class="card mt12">
+      <table class="table">
+        <thead><tr><th>Type</th><th>Fournisseur</th><th>Montant</th><th>Période</th><th>Action</th><th>Statut</th><th>Commentaire</th><th>Actions</th></tr></thead>
+        <tbody id="factures-body"></tbody>
+      </table>
+      <div id="factures-empty" class="empty-state" style="display:none">
+        <div class="empty-icon">🧾</div><p>Aucune facture trouvée</p>
+        <button class="btn-primary mt8" onclick="openModal()">Ajouter une facture</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ KPI ═══ -->
+  <section id="tab-kpi" class="tab-section">
+    <div class="page-header"><h1>Statistiques</h1></div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-label">Total factures</div><div class="kpi-value" id="k-total">—</div></div>
+      <div class="kpi-card red"><div class="kpi-label">À traiter</div><div class="kpi-value" id="k-traiter">—</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Récupérées</div><div class="kpi-value" id="k-recup">—</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Montant total</div><div class="kpi-value" id="k-montant">—</div></div>
+    </div>
+    <div class="dash-row mt16">
+      <div class="card flex-1"><div class="card-header"><h3>Répartition par type</h3></div><canvas id="k-chart-type" height="240"></canvas></div>
+      <div class="card flex-1"><div class="card-header"><h3>Répartition par statut</h3></div><canvas id="k-chart-statut" height="240"></canvas></div>
+    </div>
+    <div class="card mt16"><div class="card-header"><h3>Montant par type (€)</h3></div><canvas id="k-chart-montant" height="180"></canvas></div>
+  </section>
+
+  <!-- ═══ IMPORT ═══ -->
+  <section id="tab-import" class="tab-section">
+    <div class="page-header"><h1>Import / Export</h1></div>
+    <div class="dash-row">
+      <div class="card flex-1">
+        <div class="card-header"><h3>📥 Importer depuis CSV</h3></div>
+        <p style="color:var(--text2);margin-bottom:16px;font-size:13px">Importe les factures depuis un fichier CSV (export Google Sheets). Les colonnes attendues : type, fournisseur, montant, periode, action, statut, detail, comment.</p>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('csv-input').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+          <div class="upload-icon">📄</div>
+          <p>Clique ou glisse ton fichier CSV ici</p>
+          <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(this.files[0])">
+        </div>
+        <div id="import-result" style="margin-top:12px"></div>
+      </div>
+      <div class="card flex-1">
+        <div class="card-header"><h3>⬇ Exporter en CSV</h3></div>
+        <p style="color:var(--text2);margin-bottom:16px;font-size:13px">Exporte toutes les factures dans un fichier CSV compatible Excel.</p>
+        <button class="btn-primary" onclick="exportCSV()" style="width:100%">⬇ Télécharger le CSV</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- MODAL FACTURE -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Nouvelle facture</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f-id">
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label>Type *</label>
+          <select id="f-type">
+            <option>Matériels/Fournitures</option><option>Hôtel/Déplacement</option>
+            <option>Restauration</option><option>Dépenses mensuelles</option>
+            <option>Chèques</option><option>Virements</option><option>Autres</option>
+          </select>
+        </div>
+        <div class="form-group flex-2">
+          <label>Fournisseur *</label>
+          <input type="text" id="f-fournisseur" placeholder="Nom du fournisseur">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label>Montant estimé (€)</label>
+          <input type="number" id="f-montant" placeholder="0" min="0" step="0.01">
+        </div>
+        <div class="form-group flex-1">
+          <label>Période (date facture)</label>
+          <input type="date" id="f-periode">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label>Action requise</label>
+          <select id="f-action">
+            <option>En attente</option><option>Plateforme en ligne</option>
+            <option>Appeler fournisseur</option><option>Envoyer mail</option>
+            <option>Relance comptable</option>
+          </select>
+        </div>
+        <div class="form-group flex-1">
+          <label>Statut</label>
+          <select id="f-statut">
+            <option>À traiter</option><option>En cours</option>
+            <option>Récupérée</option><option>Annulée</option>
+            <option>Impossible à récupérer</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group mt8">
+        <label>URL / Détail</label>
+        <input type="text" id="f-detail" placeholder="Lien plateforme ou information utile">
+      </div>
+      <div class="form-group mt8">
+        <label>Commentaire</label>
+        <textarea id="f-comment" rows="3" placeholder="Notes, remarques…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn-danger" id="btn-delete" onclick="deleteFacture()" style="display:none">🗑 Supprimer</button>
+      <button class="btn-primary" onclick="saveFacture()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
