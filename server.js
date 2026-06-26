@@ -178,7 +178,6 @@ function parseDate(str) {
 app.get('/api/kpi', async (req, res) => {
   try {
     const { annee } = req.query;
-    const where = annee ? `AND EXTRACT(YEAR FROM periode) = ${parseInt(annee)}` : '';
     const whereOnly = annee ? `WHERE EXTRACT(YEAR FROM periode) = ${parseInt(annee)}` : 'WHERE 1=1';
 
     // Totaux GLOBAUX (toutes années confondues — jamais filtrés)

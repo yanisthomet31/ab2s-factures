@@ -68,12 +68,26 @@ function showTab(name) {
 // Appelé quand on change l'année sur le dashboard
 function onAnneeChange() {
   currentAnnee = document.getElementById('dash-annee').value;
-  // Sync les autres sélecteurs
   const fa = document.getElementById('factures-annee');
   const ka = document.getElementById('kpi-annee');
   if (fa) fa.value = currentAnnee;
   if (ka) ka.value = currentAnnee;
   loadDashboard();
+}
+
+// Appelé quand on change l'année sur l'onglet Factures
+async function onFacturesAnneeChange() {
+  document.getElementById('filter-mois').value = '';
+  await refreshMoisFilter();
+  loadFactures();
+}
+
+// Met à jour le filtre mois selon l'année sélectionnée dans l'onglet Factures
+async function refreshMoisFilter() {
+  const annee = getAnnee('factures-annee');
+  const url = '/api/kpi' + (annee ? `?annee=${annee}` : '');
+  const kpi = await fetchJSON(url);
+  if (kpi) populateMoisFilter(kpi.par_mois);
 }
 
 function getAnnee(selectId) {
