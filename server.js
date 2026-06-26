@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const os = require('os');
 const { Pool } = require('pg');
 const multer = require('multer');
 
@@ -47,7 +46,7 @@ async function initDB() {
 // ─── Routes Factures ──────────────────────────────────
 app.get('/api/factures', async (req, res) => {
   try {
-    const { search, type, statut, action, mois } = req.query;
+    const { search, statut, action, mois, annee } = req.query;
     let text = 'SELECT * FROM factures WHERE 1=1';
     const params = [];
 
@@ -56,9 +55,9 @@ app.get('/api/factures', async (req, res) => {
       const n = params.length;
       text += ` AND (fournisseur ILIKE $${n} OR "comment" ILIKE $${n})`;
     }
-    if (type)   { params.push(type);   text += ` AND type = $${params.length}`; }
     if (statut) { params.push(statut); text += ` AND statut = $${params.length}`; }
     if (action) { params.push(action); text += ` AND action = $${params.length}`; }
+    if (annee)  { params.push(annee);  text += ` AND EXTRACT(YEAR FROM periode) = $${params.length}`; }
     if (mois)   { params.push(mois);   text += ` AND TO_CHAR(periode,'YYYY-MM') = $${params.length}`; }
 
     text += ' ORDER BY periode DESC NULLS LAST, created_at DESC';
@@ -145,7 +144,7 @@ app.post('/api/import/csv', upload.single('file'), async (req, res) => {
       if (!fournisseur || fournisseur === '?') continue;
 
       await query(`
-        INSERT INTO factures (type, fournisseur, montant, periode, action, statut, detail, comment)
+        INSERT INTO factures (type, fournisseur, montant, periode, action, statut, detail, "comment")
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [type, fournisseur, montant, periode, action, statut, detail, comment]);
       imported++;
@@ -178,30 +177,51 @@ function parseDate(str) {
 // ─── KPI ─────────────────────────────────────────────
 app.get('/api/kpi', async (req, res) => {
   try {
-    const [totR, montR, traiterR, coursR, recupereesR, impossibleR,
+    const { annee } = req.query;
+    const where = annee ? `AND EXTRACT(YEAR FROM periode) = ${parseInt(annee)}` : '';
+    const whereOnly = annee ? `WHERE EXTRACT(YEAR FROM periode) = ${parseInt(annee)}` : 'WHERE 1=1';
+
+    // Totaux GLOBAUX (toutes années confondues — jamais filtrés)
+    const [gTotR, gMontRecupR, gMontTraiterR, gMontImpossibleR, anneesR] = await Promise.all([
+      query('SELECT COUNT(*) n FROM factures'),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut='Récupérée'"),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut IN ('À traiter','En cours')"),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut='Impossible à récupérer'"),
+      query(`SELECT DISTINCT EXTRACT(YEAR FROM periode)::int annee FROM factures
+             WHERE periode IS NOT NULL ORDER BY annee DESC`)
+    ]);
+
+    // Stats ANNUELLES (filtrées par année si fournie)
+    const [totR, traiterR, coursR, recupereesR, impossibleR,
            montTraiterR, montRecupR, montImpossibleR,
            typeR, statutR, moisR, moisStatutR] = await Promise.all([
-      query('SELECT COUNT(*) n FROM factures'),
-      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut NOT IN ('Annulée','Impossible à récupérer')"),
-      query("SELECT COUNT(*) n FROM factures WHERE statut='À traiter'"),
-      query("SELECT COUNT(*) n FROM factures WHERE statut='En cours'"),
-      query("SELECT COUNT(*) n FROM factures WHERE statut='Récupérée'"),
-      query("SELECT COUNT(*) n FROM factures WHERE statut='Impossible à récupérer'"),
-      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut IN ('À traiter','En cours')"),
-      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut='Récupérée'"),
-      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut='Impossible à récupérer'"),
-      query('SELECT type, COUNT(*) n, COALESCE(SUM(montant),0) montant FROM factures GROUP BY type ORDER BY n DESC'),
-      query('SELECT statut, COUNT(*) n FROM factures GROUP BY statut'),
+      query(`SELECT COUNT(*) n FROM factures ${whereOnly}`),
+      query(`SELECT COUNT(*) n FROM factures ${whereOnly} AND statut='À traiter'`),
+      query(`SELECT COUNT(*) n FROM factures ${whereOnly} AND statut='En cours'`),
+      query(`SELECT COUNT(*) n FROM factures ${whereOnly} AND statut='Récupérée'`),
+      query(`SELECT COUNT(*) n FROM factures ${whereOnly} AND statut='Impossible à récupérer'`),
+      query(`SELECT COALESCE(SUM(montant),0) s FROM factures ${whereOnly} AND statut IN ('À traiter','En cours')`),
+      query(`SELECT COALESCE(SUM(montant),0) s FROM factures ${whereOnly} AND statut='Récupérée'`),
+      query(`SELECT COALESCE(SUM(montant),0) s FROM factures ${whereOnly} AND statut='Impossible à récupérer'`),
+      query(`SELECT type, COUNT(*) n, COALESCE(SUM(montant),0) montant FROM factures ${whereOnly} GROUP BY type ORDER BY n DESC`),
+      query(`SELECT statut, COUNT(*) n FROM factures ${whereOnly} GROUP BY statut`),
       query(`SELECT TO_CHAR(periode,'YYYY-MM') mois, COUNT(*) n, COALESCE(SUM(montant),0) montant
-             FROM factures WHERE periode IS NOT NULL
-             GROUP BY mois ORDER BY mois ASC LIMIT 12`),
+             FROM factures ${whereOnly} AND periode IS NOT NULL
+             GROUP BY mois ORDER BY mois ASC`),
       query(`SELECT TO_CHAR(periode,'YYYY-MM') mois, statut, COUNT(*) n, COALESCE(SUM(montant),0) montant
-             FROM factures WHERE periode IS NOT NULL
+             FROM factures ${whereOnly} AND periode IS NOT NULL
              GROUP BY mois, statut ORDER BY mois ASC`)
     ]);
+
     res.json({
+      // Globaux
+      global_total: parseInt(gTotR.rows[0].n),
+      global_montant_recupere: parseFloat(gMontRecupR.rows[0].s),
+      global_montant_a_traiter: parseFloat(gMontTraiterR.rows[0].s),
+      global_montant_impossible: parseFloat(gMontImpossibleR.rows[0].s),
+      annees: anneesR.rows.map(r => r.annee),
+      // Annuels
       total: parseInt(totR.rows[0].n),
-      montant_total: parseFloat(montR.rows[0].s),
       a_traiter: parseInt(traiterR.rows[0].n),
       en_cours: parseInt(coursR.rows[0].n),
       recuperees: parseInt(recupereesR.rows[0].n),
@@ -222,19 +242,23 @@ app.get('/api/kpi', async (req, res) => {
 
 // ─── Export CSV ───────────────────────────────────────
 app.get('/api/export/csv', async (req, res) => {
-  const { rows } = await query('SELECT * FROM factures ORDER BY periode DESC');
-  const headers = ['ID','Type','Fournisseur','Montant','Période','Action','Statut','Détail','Commentaire','Créé le'];
-  const csv = [
-    headers.join(';'),
-    ...rows.map(r => [r.id, r.type, r.fournisseur, r.montant,
-      r.periode ? r.periode.toISOString().slice(0,10) : '',
-      r.action, r.statut, r.detail||'',
-      `"${(r.comment||'').replace(/"/g,'""')}"`,
-      r.created_at.toISOString().slice(0,10)].join(';'))
-  ].join('\n');
-  res.setHeader('Content-Type','text/csv;charset=utf-8');
-  res.setHeader('Content-Disposition','attachment;filename="factures_ab2s.csv"');
-  res.send('﻿' + csv);
+  try {
+    const { rows } = await query('SELECT * FROM factures ORDER BY periode DESC');
+    const headers = ['ID','Type','Fournisseur','Montant','Période','Action','Statut','Détail','Commentaire','Créé le'];
+    const csv = [
+      headers.join(';'),
+      ...rows.map(r => [r.id, r.type, r.fournisseur, r.montant,
+        r.periode ? r.periode.toISOString().slice(0,10) : '',
+        r.action, r.statut, r.detail||'',
+        `"${(r.comment||'').replace(/"/g,'""')}"`,
+        r.created_at.toISOString().slice(0,10)].join(';'))
+    ].join('\n');
+    res.setHeader('Content-Type','text/csv;charset=utf-8');
+    res.setHeader('Content-Disposition','attachment;filename="factures_ab2s.csv"');
+    res.send('﻿' + csv);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Démarrage ────────────────────────────────────────

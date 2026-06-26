@@ -35,8 +35,25 @@
   <section id="tab-dashboard" class="tab-section active">
     <div class="page-header">
       <div><h1>Tableau de bord</h1><p class="page-sub" id="date-today"></p></div>
-      <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="dash-annee" onchange="onAnneeChange()" class="filter-select annee-select">
+          <option value="">Toutes les années</option>
+        </select>
+        <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+      </div>
     </div>
+
+    <!-- Zone 1 : Totaux historiques (toutes années) -->
+    <div class="zone-label">📅 Totaux historiques — toutes années confondues</div>
+    <div class="kpi-grid kpi-grid-global">
+      <div class="kpi-card blue"><div class="kpi-label">Total factures (tous temps)</div><div class="kpi-value" id="g-total">—</div><div class="kpi-icon">🧾</div></div>
+      <div class="kpi-card red"><div class="kpi-label">💶 Montant restant à traiter</div><div class="kpi-value kpi-value-lg" id="g-mont-traiter">—</div></div>
+      <div class="kpi-card green"><div class="kpi-label">💶 Montant total récupéré</div><div class="kpi-value kpi-value-lg" id="g-mont-recup">—</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">💶 Montant impossible à récupérer</div><div class="kpi-value kpi-value-lg" id="g-mont-impossible">—</div></div>
+    </div>
+
+    <!-- Zone 2 : Vue annuelle -->
+    <div class="zone-label" id="zone-annee-label">📊 Vue annuelle</div>
     <div class="kpi-grid">
       <div class="kpi-card blue"><div class="kpi-label">Total factures</div><div class="kpi-value" id="d-total">—</div><div class="kpi-icon">🧾</div></div>
       <div class="kpi-card red"><div class="kpi-label">À traiter</div><div class="kpi-value" id="d-traiter">—</div><div class="kpi-icon">⚠️</div></div>
@@ -44,12 +61,7 @@
       <div class="kpi-card green"><div class="kpi-label">Récupérées</div><div class="kpi-value" id="d-recup">—</div><div class="kpi-icon">✅</div></div>
       <div class="kpi-card purple"><div class="kpi-label">Impossible à récupérer</div><div class="kpi-value" id="d-impossible">—</div><div class="kpi-icon">🚫</div></div>
     </div>
-    <div class="kpi-grid kpi-grid-montants">
-      <div class="kpi-card kpi-montant red"><div class="kpi-label">💶 Montant restant à traiter</div><div class="kpi-value kpi-value-lg" id="d-mont-traiter">—</div></div>
-      <div class="kpi-card kpi-montant green"><div class="kpi-label">💶 Montant total récupéré</div><div class="kpi-value kpi-value-lg" id="d-mont-recup">—</div></div>
-      <div class="kpi-card kpi-montant purple"><div class="kpi-label">💶 Montant impossible à récupérer</div><div class="kpi-value kpi-value-lg" id="d-mont-impossible">—</div></div>
-    </div>
-    <div class="dash-row mt16">
+    <div class="dash-row mt12">
       <div class="card flex-2"><div class="card-header"><h3>Évolution mensuelle</h3></div><canvas id="chart-mois" height="180"></canvas></div>
       <div class="card flex-1"><div class="card-header"><h3>Par statut</h3></div><canvas id="chart-statut" height="180"></canvas></div>
     </div>
@@ -64,7 +76,12 @@
   <section id="tab-factures" class="tab-section">
     <div class="page-header">
       <div><h1>Factures</h1><p class="page-sub" id="factures-count">Chargement…</p></div>
-      <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="factures-annee" onchange="loadFactures()" class="filter-select annee-select">
+          <option value="">Toutes les années</option>
+        </select>
+        <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+      </div>
     </div>
     <div class="filters-bar card">
       <input type="search" id="search-input" placeholder="🔍 Rechercher fournisseur, commentaire…" oninput="loadFactures()" class="search-input">
@@ -97,7 +114,12 @@
 
   <!-- ═══ KPI ═══ -->
   <section id="tab-kpi" class="tab-section">
-    <div class="page-header"><h1>Statistiques</h1></div>
+    <div class="page-header">
+      <h1>Statistiques</h1>
+      <select id="kpi-annee" onchange="loadKPI()" class="filter-select annee-select">
+        <option value="">Toutes les années</option>
+      </select>
+    </div>
     <div class="kpi-grid">
       <div class="kpi-card blue"><div class="kpi-label">Total factures</div><div class="kpi-value" id="k-total">—</div></div>
       <div class="kpi-card red"><div class="kpi-label">À traiter</div><div class="kpi-value" id="k-traiter">—</div></div>
@@ -119,7 +141,7 @@
     <div class="dash-row">
       <div class="card flex-1">
         <div class="card-header"><h3>📥 Importer depuis CSV</h3></div>
-        <p style="color:var(--text2);margin-bottom:16px;font-size:13px">Importe les factures depuis un fichier CSV (export Google Sheets). Les colonnes attendues : type, fournisseur, montant, periode, action, statut, detail, comment.</p>
+        <p style="color:var(--text2);margin-bottom:16px;font-size:13px">Importe les factures depuis un fichier CSV. Colonnes attendues : type, fournisseur, montant, periode, action, statut, detail, comment.</p>
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('csv-input').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
           <div class="upload-icon">📄</div>
           <p>Clique ou glisse ton fichier CSV ici</p>
