@@ -46,60 +46,75 @@ async function initDB() {
 
 // ─── Routes Factures ──────────────────────────────────
 app.get('/api/factures', async (req, res) => {
-  const { search, type, statut, action, mois, annee } = req.query;
-  let text = 'SELECT * FROM factures WHERE 1=1';
-  const params = [];
+  try {
+    const { search, type, statut, action } = req.query;
+    let text = 'SELECT * FROM factures WHERE 1=1';
+    const params = [];
 
-  if (search) {
-    params.push(`%${search}%`);
-    text += ` AND (fournisseur ILIKE $${params.length} OR comment ILIKE $${params.length})`;
-  }
-  if (type)   { params.push(type);   text += ` AND type = $${params.length}`; }
-  if (statut) { params.push(statut); text += ` AND statut = $${params.length}`; }
-  if (action) { params.push(action); text += ` AND action = $${params.length}`; }
-  if (mois && annee) {
-    params.push(annee, mois);
-    text += ` AND EXTRACT(YEAR FROM periode) = $${params.length-1} AND EXTRACT(MONTH FROM periode) = $${params.length}`;
-  } else if (annee) {
-    params.push(annee);
-    text += ` AND EXTRACT(YEAR FROM periode) = $${params.length}`;
-  }
+    if (search) {
+      params.push(`%${search}%`);
+      const n = params.length;
+      text += ` AND (fournisseur ILIKE $${n} OR "comment" ILIKE $${n})`;
+    }
+    if (type)   { params.push(type);   text += ` AND type = $${params.length}`; }
+    if (statut) { params.push(statut); text += ` AND statut = $${params.length}`; }
+    if (action) { params.push(action); text += ` AND action = $${params.length}`; }
 
-  text += ' ORDER BY periode DESC, created_at DESC';
-  const r = await query(text, params);
-  res.json(r.rows);
+    text += ' ORDER BY periode DESC NULLS LAST, created_at DESC';
+    const r = await query(text, params);
+    res.json(r.rows);
+  } catch(e) {
+    console.error('GET /api/factures', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/factures/:id', async (req, res) => {
-  const { rows } = await query('SELECT * FROM factures WHERE id=$1', [req.params.id]);
-  if (!rows[0]) return res.status(404).json({ error: 'Introuvable' });
-  res.json(rows[0]);
+  try {
+    const { rows } = await query('SELECT * FROM factures WHERE id=$1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Introuvable' });
+    res.json(rows[0]);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/factures', async (req, res) => {
-  const f = req.body;
-  const { rows } = await query(`
-    INSERT INTO factures (type, fournisseur, montant, periode, action, statut, detail, comment)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [f.type, f.fournisseur, parseFloat(f.montant)||0, f.periode||null,
-     f.action||'En attente', f.statut||'À traiter', f.detail, f.comment]);
-  res.json({ id: rows[0].id });
+  try {
+    const f = req.body;
+    const { rows } = await query(`
+      INSERT INTO factures (type, fournisseur, montant, periode, action, statut, detail, "comment")
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [f.type, f.fournisseur, parseFloat(f.montant)||0, f.periode||null,
+       f.action||'En attente', f.statut||'À traiter', f.detail||null, f.comment||null]);
+    res.json({ id: rows[0].id });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.put('/api/factures/:id', async (req, res) => {
-  const f = req.body;
-  await query(`
-    UPDATE factures SET type=$1, fournisseur=$2, montant=$3, periode=$4,
-      action=$5, statut=$6, detail=$7, comment=$8, updated_at=NOW()
-    WHERE id=$9`,
-    [f.type, f.fournisseur, parseFloat(f.montant)||0, f.periode||null,
-     f.action, f.statut, f.detail, f.comment, req.params.id]);
-  res.json({ ok: true });
+  try {
+    const f = req.body;
+    await query(`
+      UPDATE factures SET type=$1, fournisseur=$2, montant=$3, periode=$4,
+        action=$5, statut=$6, detail=$7, "comment"=$8, updated_at=NOW()
+      WHERE id=$9`,
+      [f.type, f.fournisseur, parseFloat(f.montant)||0, f.periode||null,
+       f.action, f.statut, f.detail||null, f.comment||null, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/factures/:id', async (req, res) => {
-  await query('DELETE FROM factures WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    await query('DELETE FROM factures WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Import CSV ───────────────────────────────────────
@@ -161,28 +176,33 @@ function parseDate(str) {
 
 // ─── KPI ─────────────────────────────────────────────
 app.get('/api/kpi', async (req, res) => {
-  const [totR, montR, traiterR, coursR, recupereesR, typeR, statutR, moisR] = await Promise.all([
-    query('SELECT COUNT(*) n FROM factures'),
-    query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut NOT IN ('Annulée','Impossible à récupérer')"),
-    query("SELECT COUNT(*) n FROM factures WHERE statut='À traiter'"),
-    query("SELECT COUNT(*) n FROM factures WHERE statut='En cours'"),
-    query("SELECT COUNT(*) n FROM factures WHERE statut='Récupérée'"),
-    query('SELECT type, COUNT(*) n, COALESCE(SUM(montant),0) montant FROM factures GROUP BY type ORDER BY n DESC'),
-    query('SELECT statut, COUNT(*) n FROM factures GROUP BY statut'),
-    query(`SELECT TO_CHAR(periode,'YYYY-MM') mois, COUNT(*) n, COALESCE(SUM(montant),0) montant
-           FROM factures WHERE periode IS NOT NULL
-           GROUP BY mois ORDER BY mois DESC LIMIT 12`)
-  ]);
-  res.json({
-    total: parseInt(totR.rows[0].n),
-    montant_total: parseFloat(montR.rows[0].s),
-    a_traiter: parseInt(traiterR.rows[0].n),
-    en_cours: parseInt(coursR.rows[0].n),
-    recuperees: parseInt(recupereesR.rows[0].n),
-    par_type: typeR.rows,
-    par_statut: statutR.rows,
-    par_mois: moisR.rows.reverse()
-  });
+  try {
+    const [totR, montR, traiterR, coursR, recupereesR, typeR, statutR, moisR] = await Promise.all([
+      query('SELECT COUNT(*) n FROM factures'),
+      query("SELECT COALESCE(SUM(montant),0) s FROM factures WHERE statut NOT IN ('Annulée','Impossible à récupérer')"),
+      query("SELECT COUNT(*) n FROM factures WHERE statut='À traiter'"),
+      query("SELECT COUNT(*) n FROM factures WHERE statut='En cours'"),
+      query("SELECT COUNT(*) n FROM factures WHERE statut='Récupérée'"),
+      query('SELECT type, COUNT(*) n, COALESCE(SUM(montant),0) montant FROM factures GROUP BY type ORDER BY n DESC'),
+      query('SELECT statut, COUNT(*) n FROM factures GROUP BY statut'),
+      query(`SELECT TO_CHAR(periode,'YYYY-MM') mois, COUNT(*) n, COALESCE(SUM(montant),0) montant
+             FROM factures WHERE periode IS NOT NULL
+             GROUP BY mois ORDER BY mois DESC LIMIT 12`)
+    ]);
+    res.json({
+      total: parseInt(totR.rows[0].n),
+      montant_total: parseFloat(montR.rows[0].s),
+      a_traiter: parseInt(traiterR.rows[0].n),
+      en_cours: parseInt(coursR.rows[0].n),
+      recuperees: parseInt(recupereesR.rows[0].n),
+      par_type: typeR.rows,
+      par_statut: statutR.rows,
+      par_mois: moisR.rows.reverse()
+    });
+  } catch(e) {
+    console.error('GET /api/kpi', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Export CSV ───────────────────────────────────────

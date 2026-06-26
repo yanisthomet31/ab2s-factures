@@ -37,7 +37,7 @@ async function loadDashboard() {
   buildMoisChart(kpi.par_mois);
   buildStatutChart(kpi.par_statut);
 
-  const factures = await fetchJSON('/api/factures?statut=%C3%80%20traiter');
+  const factures = await fetchJSON('/api/factures?statut=' + encodeURIComponent('À traiter'));
   const tbody = document.getElementById('dash-priority-body');
   if (!factures || !factures.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px">Aucune facture à traiter 🎉</td></tr>';
