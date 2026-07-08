@@ -39,9 +39,31 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS categories (
+      id SERIAL PRIMARY KEY,
+      nom TEXT UNIQUE NOT NULL,
+      actif BOOLEAN DEFAULT TRUE
+    );
+    INSERT INTO categories (nom) VALUES
+      ('Matériels/Fournitures'), ('Hôtel/Déplacement'), ('Restauration'),
+      ('Dépenses mensuelles'), ('Chèques'), ('Virements'), ('Autres')
+    ON CONFLICT (nom) DO NOTHING;
   `);
   console.log('✅ Base de données initialisée');
 }
+
+// ─── Routes Catégories ────────────────────────────────
+app.get('/api/categories', async (req, res) => {
+  const { rows } = await query('SELECT * FROM categories WHERE actif=true ORDER BY nom');
+  res.json(rows);
+});
+
+app.post('/api/categories', async (req, res) => {
+  const { rows } = await query(
+    'INSERT INTO categories (nom) VALUES ($1) ON CONFLICT (nom) DO NOTHING RETURNING id',
+    [req.body.nom]);
+  res.json({ id: rows[0]?.id });
+});
 
 // ─── Routes Factures ──────────────────────────────────
 app.get('/api/factures', async (req, res) => {

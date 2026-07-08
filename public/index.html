@@ -181,11 +181,10 @@
       <div class="form-row">
         <div class="form-group flex-1">
           <label>Type *</label>
-          <select id="f-type">
-            <option>Matériels/Fournitures</option><option>Hôtel/Déplacement</option>
-            <option>Restauration</option><option>Dépenses mensuelles</option>
-            <option>Chèques</option><option>Virements</option><option>Autres</option>
-          </select>
+          <div style="display:flex;gap:6px">
+            <select id="f-type" style="flex:1"></select>
+            <button type="button" class="btn-ghost" onclick="addCategorie()" title="Ajouter une catégorie">+</button>
+          </div>
         </div>
         <div class="form-group flex-2">
           <label>Fournisseur *</label>

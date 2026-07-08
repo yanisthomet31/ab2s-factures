@@ -9,8 +9,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     weekday:'long', year:'numeric', month:'long', day:'numeric'
   });
   await initAnnees();
+  await loadCategories();
   showTab('dashboard');
 });
+
+// ─── Catégories (Type) ────────────────────────────────
+async function loadCategories() {
+  const cats = await fetchJSON('/api/categories') || [];
+  const sel = document.getElementById('f-type');
+  const current = sel.value;
+  sel.innerHTML = cats.map(c => `<option>${esc(c.nom)}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+async function addCategorie() {
+  const nom = prompt('Nom de la nouvelle catégorie :');
+  if (!nom || !nom.trim()) return;
+  const r = await postJSON('/api/categories', { nom: nom.trim() });
+  if (r === null) return;
+  await loadCategories();
+  document.getElementById('f-type').value = nom.trim();
+  toast('Catégorie ajoutée ✔');
+}
 
 // Charge les années disponibles et initialise tous les sélecteurs
 async function initAnnees() {
