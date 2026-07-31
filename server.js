@@ -3,14 +3,17 @@ const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
 const multer = require('multer');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const PORT = process.env.PORT || 3738;
 const upload = multer({ storage: multer.memoryStorage() });
 
+app.set('trust proxy', 1); // Render termine le HTTPS en amont — nécessaire pour que le cookie de session "secure" soit bien envoyé.
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Base de données ──────────────────────────────────
 const pool = new Pool({
@@ -48,9 +51,82 @@ async function initDB() {
       ('Matériels/Fournitures'), ('Hôtel/Déplacement'), ('Restauration'),
       ('Dépenses mensuelles'), ('Chèques'), ('Virements'), ('Autres')
     ON CONFLICT (nom) DO NOTHING;
+    CREATE TABLE IF NOT EXISTS factures_users (
+      id SERIAL PRIMARY KEY,
+      nom TEXT NOT NULL,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    INSERT INTO factures_users (nom, username, password_hash) VALUES
+      ('Adber', 'adber', '$2b$10$hQvsQIRAJEyqiykTV01tVeUTJlhRdUhxbCcNxM.pkdY3L6OKotfS2'),
+      ('Yanis', 'yanis', '$2b$10$YHs4vswZHcVCNbbvPk7lYO7I7VMliMJ4TzVdVa5pLyW1D/4tn9Lu.'),
+      ('Samar', 'samar', '$2b$10$DMfwVaWZ6lCwaCiriNbmP.8H8Fz6RNaSncTV3ar7NLPfleNLUYQaO')
+    ON CONFLICT (username) DO NOTHING;
   `);
   console.log('✅ Base de données initialisée');
 }
+
+// ─── Session ───────────────────────────────────────────
+app.use(session({
+  store: new pgSession({ pool, createTableIfMissing: true }),
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7, secure: process.env.NODE_ENV === 'production', httpOnly: true }
+}));
+
+// ─── Pages/assets accessibles sans session (page de connexion) ──
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+app.get('/style.css', (req, res) => res.sendFile(path.join(__dirname, 'public', 'style.css')));
+app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/login.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.js')));
+
+// ─── Auth ──────────────────────────────────────────────
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  const { rows } = await query('SELECT * FROM factures_users WHERE username=$1', [(username || '').toLowerCase().trim()]);
+  const user = rows[0];
+  if (!user || !bcrypt.compareSync(password || '', user.password_hash)) {
+    return res.status(401).json({ error: 'Identifiants incorrects' });
+  }
+  req.session.userId = user.id;
+  req.session.nom = user.nom;
+  res.json({ ok: true, nom: user.nom });
+});
+
+function requireAuth(req, res, next) {
+  if (req.session && req.session.userId) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Non authentifié' });
+  return res.redirect('/login.html');
+}
+app.use(requireAuth);
+
+app.get('/api/me', (req, res) => {
+  res.json({ nom: req.session.nom });
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+app.post('/api/change-password', async (req, res) => {
+  const { ancien, nouveau } = req.body;
+  const { rows } = await query('SELECT * FROM factures_users WHERE id=$1', [req.session.userId]);
+  const user = rows[0];
+  if (!user || !bcrypt.compareSync(ancien || '', user.password_hash)) {
+    return res.status(400).json({ error: 'Ancien mot de passe incorrect' });
+  }
+  if (!nouveau || nouveau.length < 6) {
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 6 caractères' });
+  }
+  const hash = bcrypt.hashSync(nouveau, 10);
+  await query('UPDATE factures_users SET password_hash=$1 WHERE id=$2', [hash, user.id]);
+  res.json({ ok: true });
+});
+
+// ─── Static (protégé — servi après requireAuth) ───────
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Routes Catégories ────────────────────────────────
 app.get('/api/categories', async (req, res) => {

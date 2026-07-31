@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AB2S Sécurité — Connexion</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)">
+
+<div class="card" style="width:340px;padding:32px 28px;text-align:center">
+  <img src="assets/logo.png" alt="AB2S Sécurité" style="width:90px;margin-bottom:16px">
+  <h2 style="color:var(--blue);margin-bottom:4px">Suivi des factures</h2>
+  <p style="color:var(--text2);font-size:13px;margin-bottom:20px">AB2S Sécurité</p>
+
+  <form id="login-form" style="display:flex;flex-direction:column;gap:12px;text-align:left">
+    <div class="form-group">
+      <label>Identifiant</label>
+      <input type="text" id="l-username" placeholder="adber / yanis / samar" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Mot de passe</label>
+      <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn-primary" style="margin-top:8px">Se connecter</button>
+  </form>
+
+  <p id="login-error" style="color:var(--red);font-size:13px;margin-top:14px;display:none"></p>
+</div>
+
+<script src="login.js"></script>
+</body>
+</html>

@@ -5,6 +5,11 @@ let currentAnnee = new Date().getFullYear().toString();
 
 // ─── Init ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  const me = await fetchJSON('/api/me');
+  if (!me || !me.nom) { window.location.href = '/login.html'; return; }
+  const connectedEl = document.getElementById('connected-as');
+  if (connectedEl) connectedEl.textContent = `Connecté : ${me.nom}`;
+
   document.getElementById('date-today').textContent = new Date().toLocaleDateString('fr-FR', {
     weekday:'long', year:'numeric', month:'long', day:'numeric'
   });
@@ -12,6 +17,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadCategories();
   showTab('dashboard');
 });
+
+async function logout() {
+  await postJSON('/api/logout', {});
+  window.location.href = '/login.html';
+}
+
+async function changePassword() {
+  const ancien = prompt('Ancien mot de passe :');
+  if (!ancien) return;
+  const nouveau = prompt('Nouveau mot de passe (6 caractères minimum) :');
+  if (!nouveau) return;
+  const confirmation = prompt('Confirmez le nouveau mot de passe :');
+  if (nouveau !== confirmation) { toast('Les mots de passe ne correspondent pas', true); return; }
+  const r = await postJSON('/api/change-password', { ancien, nouveau });
+  if (r && r.ok) toast('Mot de passe changé ✔');
+  else toast((r && r.error) || 'Erreur', true);
+}
 
 // ─── Catégories (Type) ────────────────────────────────
 async function loadCategories() {
@@ -538,6 +560,7 @@ function exportCSV() {
 async function fetchJSON(url) {
   try {
     const r = await fetch(API + url);
+    if (r.status === 401) { window.location.href = '/login.html'; return null; }
     if (!r.ok) throw new Error(r.status);
     return r.json();
   } catch(e) {
@@ -553,6 +576,7 @@ async function postJSON(url, body, method = 'POST') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if (r.status === 401) { window.location.href = '/login.html'; return null; }
     if (!r.ok) throw new Error(r.status);
     return r.json();
   } catch(e) {
