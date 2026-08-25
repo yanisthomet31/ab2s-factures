@@ -18,8 +18,12 @@ app.use(express.json());
 // ─── Base de données ──────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000 // échoue vite plutôt que de bloquer indéfiniment si la base ne répond pas
 });
+pool.on('error', (err) => console.error('❌ Erreur inattendue du pool PostgreSQL:', err.message));
 
 async function query(text, params) {
   const client = await pool.connect();
