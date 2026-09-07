@@ -62,13 +62,14 @@ async function initDB() {
       password_hash TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
+    -- Migration ponctuelle : le compte avait été créé avec la faute de frappe "adber" au lieu de "abder"
+    -- (doit s'exécuter AVANT l'INSERT ci-dessous pour éviter un conflit d'unicité sur 'abder')
+    UPDATE factures_users SET username='abder', nom='Abder' WHERE username='adber';
     INSERT INTO factures_users (nom, username, password_hash) VALUES
       ('Abder', 'abder', '$2b$10$hQvsQIRAJEyqiykTV01tVeUTJlhRdUhxbCcNxM.pkdY3L6OKotfS2'),
       ('Yanis', 'yanis', '$2b$10$YHs4vswZHcVCNbbvPk7lYO7I7VMliMJ4TzVdVa5pLyW1D/4tn9Lu.'),
       ('Samar', 'samar', '$2b$10$DMfwVaWZ6lCwaCiriNbmP.8H8Fz6RNaSncTV3ar7NLPfleNLUYQaO')
     ON CONFLICT (username) DO NOTHING;
-    -- Migration ponctuelle : le compte avait été créé avec la faute de frappe "adber" au lieu de "abder"
-    UPDATE factures_users SET username='abder', nom='Abder' WHERE username='adber';
   `);
   console.log('✅ Base de données initialisée');
 }
