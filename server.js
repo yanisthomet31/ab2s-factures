@@ -80,8 +80,13 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7, secure: process.env.NODE_ENV === 'production', httpOnly: true }
+  // Pas de maxAge : cookie de session, effacé à la fermeture du navigateur
+  cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'lax' }
 }));
+
+// Déconnexion automatique après 30 minutes sans aucune requête
+// (le navigateur envoie un signe de vie tant que l'utilisateur est actif)
+const INACTIVITE_MAX_MS = 30 * 60 * 1000;
 
 // ─── Pages/assets accessibles sans session (page de connexion) ──
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
@@ -99,13 +104,21 @@ app.post('/api/login', async (req, res) => {
   }
   req.session.userId = user.id;
   req.session.nom = user.nom;
+  req.session.lastSeen = Date.now();
   res.json({ ok: true, nom: user.nom });
 });
 
 function requireAuth(req, res, next) {
-  if (req.session && req.session.userId) return next();
-  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Non authentifié' });
-  return res.redirect('/login.html');
+  const deny = expired => {
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: expired ? 'Session expirée' : 'Non authentifié', expired });
+    return res.redirect(expired ? '/login.html?expired=1' : '/login.html');
+  };
+  if (!req.session || !req.session.userId) return deny(false);
+  const last = req.session.lastSeen;
+  // Session trop ancienne, ou ouverte avant la mise en place de la règle (pas de lastSeen) → reconnexion
+  if (!last || Date.now() - last > INACTIVITE_MAX_MS) return req.session.destroy(() => deny(true));
+  req.session.lastSeen = Date.now();
+  next();
 }
 app.use(requireAuth);
 
