@@ -3,242 +3,410 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AB2S Sécurité — Suivi Factures</title>
+<title>AB2S Sécurité — Suivi des factures</title>
+<script>
+  // Applique le thème avant le premier rendu (évite le flash clair → sombre)
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('ab2s-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&display=swap">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
+
+<!-- ICÔNES (style Lucide) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M14.1 5.55a2 2 0 0 0 1.8 0l3.66-1.83A1 1 0 0 1 21 4.62v12.76a1 1 0 0 1-.55.9l-4.55 2.27a2 2 0 0 1-1.8 0l-4.2-2.1a2 2 0 0 0-1.8 0l-3.66 1.83A1 1 0 0 1 3 19.38V6.62a1 1 0 0 1 .55-.9L8.1 3.45a2 2 0 0 1 1.8 0z"/><path d="M15 5.76v15M9 3.24v15"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-euro" viewBox="0 0 24 24"><path d="M4 10h12M4 14h9"/><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.38 2.63a2.12 2.12 0 1 1 3 3L12 15l-4 1 1-4Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h8M8 11h6"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+  <symbol id="i-enter" viewBox="0 0 24 24"><path d="M9 10l-5 5 5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+
+</svg>
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <img src="assets/logo.png" alt="AB2S" onerror="this.style.display='none';document.getElementById('lf').style.display='flex'">
-    <div id="lf" class="logo-fallback" style="display:none"><span class="logo-fb-title">AB2S</span><span class="logo-fb-sub">SÉCURITÉ</span></div>
+    <div class="logo-tile">
+      <img src="assets/logo.png" alt="AB2S Sécurité" onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='block'">
+      <span id="logo-fallback" class="logo-fallback" style="display:none">AB2S</span>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name">AB2S Sécurité</span>
+      <span class="brand-sub">Suivi des factures</span>
+    </div>
   </div>
+
+  <button class="search-trigger" onclick="openPalette()" title="Recherche rapide">
+    <svg class="i "><use href="#i-search"/></svg><span>Rechercher…</span><kbd id="kbd-hint">Ctrl K</kbd>
+  </button>
+
+  <div class="sidebar-section">Navigation</div>
   <nav class="sidebar-nav">
-    <a class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><span class="nav-icon">📊</span><span>Tableau de bord</span></a>
-    <a class="nav-item" data-tab="factures" onclick="showTab('factures')"><span class="nav-icon">🧾</span><span>Factures</span><span class="badge" id="badge-traiter" style="display:none">0</span></a>
-    <a class="nav-item" data-tab="kpi" onclick="showTab('kpi')"><span class="nav-icon">📈</span><span>Statistiques</span></a>
-    <a class="nav-item" data-tab="import" onclick="showTab('import')"><span class="nav-icon">📥</span><span>Import / Export</span></a>
+    <a class="nav-item active" data-tab="dashboard" href="#/dashboard"><span class="nav-icon"><svg class="i "><use href="#i-dashboard"/></svg></span><span>Tableau de bord</span></a>
+    <a class="nav-item" data-tab="factures" href="#/factures"><span class="nav-icon"><svg class="i "><use href="#i-receipt"/></svg></span><span>Factures</span><span class="nav-badge" id="badge-traiter" style="display:none">0</span></a>
+    <a class="nav-item" data-tab="kpi" href="#/kpi"><span class="nav-icon"><svg class="i "><use href="#i-pie"/></svg></span><span>Statistiques</span></a>
+    <a class="nav-item" data-tab="import" href="#/import"><span class="nav-icon"><svg class="i "><use href="#i-swap"/></svg></span><span>Import / Export</span></a>
   </nav>
+
   <div class="sidebar-footer">
-    <button class="btn-export" onclick="exportCSV()">⬇ Exporter CSV</button>
-    <div class="sidebar-version" id="connected-as">Connecté</div>
-    <button class="btn-export" onclick="changePassword()">🔑 Changer mon mot de passe</button>
-    <button class="btn-export" onclick="logout()">🚪 Déconnexion</button>
+    <button class="btn-export" onclick="toggleTheme()" id="theme-toggle">
+      <svg class="i"><use href="#i-moon" id="theme-icon"/></svg><span id="theme-label">Mode sombre</span>
+    </button>
+    <button class="btn-export" onclick="exportCSV()"><svg class="i "><use href="#i-download"/></svg><span>Exporter en CSV</span></button>
+    <button class="btn-export" onclick="changePassword()"><svg class="i "><use href="#i-key"/></svg><span>Mot de passe</span></button>
+    <button class="btn-export danger" onclick="logout()"><svg class="i "><use href="#i-logout"/></svg><span>Déconnexion</span></button>
+    <div class="user-chip mt8">
+      <div class="user-avatar" id="user-avatar">·</div>
+      <div>
+        <div class="sidebar-version" id="connected-as">Connecté</div>
+        <div class="user-role">Session active</div>
+      </div>
+    </div>
   </div>
 </aside>
 
 <!-- MAIN -->
 <main class="main">
 
-  <!-- ═══ DASHBOARD ═══ -->
+  <!-- ═══════════════════ TABLEAU DE BORD ═══════════════════ -->
   <section id="tab-dashboard" class="tab-section active">
     <div class="page-header">
-      <div><h1>Tableau de bord</h1><p class="page-sub" id="date-today"></p></div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <select id="dash-annee" onchange="onAnneeChange()" class="filter-select annee-select">
-          <option value="">Toutes les années</option>
-        </select>
-        <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+      <div>
+        <p class="eyebrow" id="dash-date"></p>
+        <h1 id="dash-greeting">Bonjour</h1>
+        <p class="page-sub">Voici où en est la récupération des factures.</p>
+      </div>
+      <div class="header-actions">
+        <select id="dash-annee" class="filter-select annee-select" onchange="setAnnee(this.value)"><option value="">Toutes les années</option></select>
+        <button class="btn-primary" onclick="openModal()"><svg class="i "><use href="#i-plus"/></svg>Nouvelle facture</button>
       </div>
     </div>
 
-    <!-- Zone 1 : Totaux historiques (toutes années) -->
-    <div class="zone-label">📅 Totaux historiques — toutes années confondues</div>
-    <div class="kpi-grid kpi-grid-global">
-      <div class="kpi-card blue"><div class="kpi-label">Total factures (tous temps)</div><div class="kpi-value" id="g-total">—</div><div class="kpi-icon">🧾</div></div>
-      <div class="kpi-card red"><div class="kpi-label">💶 Montant restant à traiter</div><div class="kpi-value kpi-value-lg" id="g-mont-traiter">—</div></div>
-      <div class="kpi-card green"><div class="kpi-label">💶 Montant total récupéré</div><div class="kpi-value kpi-value-lg" id="g-mont-recup">—</div></div>
-      <div class="kpi-card purple"><div class="kpi-label">💶 Montant impossible à récupérer</div><div class="kpi-value kpi-value-lg" id="g-mont-impossible">—</div></div>
+    <div class="zone-label">Toutes années confondues</div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="kpi-icon"><svg class="i "><use href="#i-receipt"/></svg></div>
+        <div class="kpi-label">Factures suivies</div>
+        <div class="kpi-value" id="g-total">—</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-icon"><svg class="i "><use href="#i-clock"/></svg></div>
+        <div class="kpi-label">Montant restant à traiter</div>
+        <div class="kpi-value" id="g-mont-traiter">—</div>
+      </div>
+      <div class="kpi-card teal">
+        <div class="kpi-icon"><svg class="i "><use href="#i-check-circle"/></svg></div>
+        <div class="kpi-label">Montant récupéré</div>
+        <div class="kpi-value" id="g-mont-recup">—</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-icon"><svg class="i "><use href="#i-ban"/></svg></div>
+        <div class="kpi-label">Montant impossible à récupérer</div>
+        <div class="kpi-value" id="g-mont-impossible">—</div>
+      </div>
     </div>
 
-    <!-- Zone 2 : Vue annuelle -->
-    <div class="zone-label" id="zone-annee-label">📊 Vue annuelle</div>
-    <div class="kpi-grid">
-      <div class="kpi-card blue"><div class="kpi-label">Total factures</div><div class="kpi-value" id="d-total">—</div><div class="kpi-icon">🧾</div></div>
-      <div class="kpi-card red"><div class="kpi-label">À traiter</div><div class="kpi-value" id="d-traiter">—</div><div class="kpi-icon">⚠️</div></div>
-      <div class="kpi-card orange"><div class="kpi-label">En cours</div><div class="kpi-value" id="d-cours">—</div><div class="kpi-icon">🔄</div></div>
-      <div class="kpi-card green"><div class="kpi-label">Récupérées</div><div class="kpi-value" id="d-recup">—</div><div class="kpi-icon">✅</div></div>
-      <div class="kpi-card purple"><div class="kpi-label">Impossible à récupérer</div><div class="kpi-value" id="d-impossible">—</div><div class="kpi-icon">🚫</div></div>
+    <div class="zone-label" id="zone-annee-label">Année</div>
+    <div class="card year-card">
+      <div class="hero-stats" id="year-stats"></div>
+      <div class="meter-row">
+        <span class="meter-label">Taux de récupération</span>
+        <div class="meter"><div class="meter-fill" id="taux-fill"></div></div>
+        <span class="meter-pct" id="taux-pct">—</span>
+      </div>
     </div>
-    <div class="taux-bar card" id="taux-bar">
-      <span class="taux-label">Taux de récupération</span>
-      <div class="taux-track"><div class="taux-fill" id="taux-fill"></div></div>
-      <span class="taux-pct" id="taux-pct">—</span>
+
+    <div class="dash-grid dash-grid-charts">
+      <div class="card">
+        <div class="card-header">
+          <div><h3>Montants par mois</h3><div class="card-sub" id="chart-mois-sub">Montant des factures, selon leur période</div></div>
+        </div>
+        <div id="chart-mois" class="chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div><h3>Par statut</h3><div class="card-sub">Nombre de factures</div></div>
+        </div>
+        <div id="chart-statut" class="chart"></div>
+      </div>
     </div>
-    <div class="dash-row mt12">
-      <div class="card flex-2"><div class="card-header"><h3>Évolution mensuelle</h3></div><canvas id="chart-mois" height="180"></canvas></div>
-      <div class="card flex-1"><div class="card-header"><h3>Par statut</h3></div><canvas id="chart-statut" height="180"></canvas></div>
-    </div>
-    <div class="card mt16">
-      <div class="card-header"><h3>Factures à traiter en priorité</h3><a onclick="showTab('factures')" class="link">Voir tout →</a></div>
-      <table class="table"><thead><tr><th>Type</th><th>Fournisseur</th><th>Montant</th><th>Période</th><th>Action</th><th>Statut</th></tr></thead>
-      <tbody id="dash-priority-body"></tbody></table>
+
+    <div class="card" style="padding:0">
+      <div class="card-header card-header-pad">
+        <div><h3>À traiter en priorité</h3><div class="card-sub">Factures au statut « À traiter »</div></div>
+        <a class="link" onclick="voirATraiter()">Tout voir <svg class="i i-sm"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Type</th><th>Fournisseur</th><th class="num">Montant</th><th>Période</th><th>Action</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="dash-priority-body"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
-  <!-- ═══ FACTURES ═══ -->
+  <!-- ═══════════════════ FACTURES ═══════════════════ -->
   <section id="tab-factures" class="tab-section">
     <div class="page-header">
-      <div><h1>Factures</h1><p class="page-sub" id="factures-count">Chargement…</p></div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <select id="factures-annee" onchange="onFacturesAnneeChange()" class="filter-select annee-select">
-          <option value="">Toutes les années</option>
-        </select>
-        <button class="btn-primary" onclick="openModal()">+ Nouvelle facture</button>
+      <div>
+        <h1>Factures</h1>
+        <p class="page-sub" id="factures-count">Chargement…</p>
+      </div>
+      <div class="header-actions">
+        <select id="factures-annee" class="filter-select annee-select" onchange="setAnnee(this.value)"><option value="">Toutes les années</option></select>
+        <button class="btn-primary" onclick="openModal()"><svg class="i "><use href="#i-plus"/></svg>Nouvelle facture</button>
       </div>
     </div>
-    <div class="filters-bar card">
-      <input type="search" id="search-input" placeholder="🔍 Rechercher fournisseur, commentaire…" oninput="currentPage=1;loadFactures()" class="search-input">
-      <select id="filter-mois" onchange="loadFactures()" class="filter-select">
-        <option value="">Tous les mois</option>
-      </select>
-      <select id="filter-statut" onchange="loadFactures()" class="filter-select">
-        <option value="">Tous les statuts</option>
-        <option>À traiter</option><option>En cours</option>
-        <option>Récupérée</option><option>Annulée</option><option>Impossible à récupérer</option>
-      </select>
-      <select id="filter-action" onchange="loadFactures()" class="filter-select">
-        <option value="">Toutes les actions</option>
-        <option>Plateforme en ligne</option><option>Appeler fournisseur</option>
-        <option>Envoyer mail</option><option>Relance comptable</option><option>En attente</option>
-      </select>
-      <button class="btn-ghost" onclick="resetFilters()">✕ Réinitialiser</button>
+    <div class="toolbar">
+      <div class="search-box">
+        <svg class="i "><use href="#i-search"/></svg>
+        <input type="search" id="search-input" placeholder="Rechercher un fournisseur, un commentaire…" oninput="state.pageNum=1;loadFacturesDebounced()" class="search-input">
+      </div>
+      <select id="filter-mois" onchange="state.pageNum=1;loadFactures()" class="filter-select"><option value="">Tous les mois</option></select>
+      <select id="filter-statut" onchange="state.pageNum=1;loadFactures()" class="filter-select"><option value="">Tous les statuts</option><option>À traiter</option><option>En cours</option><option>Récupérée</option><option>Annulée</option><option>Impossible à récupérer</option></select>
+      <select id="filter-action" onchange="state.pageNum=1;loadFactures()" class="filter-select"><option value="">Toutes les actions</option><option>Plateforme en ligne</option><option>Appeler fournisseur</option><option>Envoyer mail</option><option>Relance comptable</option><option>En attente</option></select>
+      <button class="btn-ghost" onclick="resetFilters()"><svg class="i i-sm"><use href="#i-x"/></svg>Réinitialiser</button>
     </div>
-    <div class="card mt12">
-      <table class="table">
-        <thead><tr><th>Type</th><th>Fournisseur</th><th>Montant</th><th>Période</th><th>Action</th><th>Statut</th><th>Commentaire</th><th>Actions</th><th></th></tr></thead>
-        <tbody id="factures-body"></tbody>
-      </table>
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Type</th><th>Fournisseur</th><th class="num">Montant</th><th>Période</th><th>Action</th><th>Statut</th><th>Commentaire</th><th></th></tr></thead>
+          <tbody id="factures-body"></tbody>
+        </table>
+      </div>
       <div id="factures-empty" class="empty-state" style="display:none">
-        <div class="empty-icon">🧾</div><p>Aucune facture trouvée</p>
-        <button class="btn-primary mt8" onclick="openModal()">Ajouter une facture</button>
+        <div class="empty-icon"><svg class="i i-lg"><use href="#i-receipt"/></svg></div>
+        <p>Aucune facture trouvée</p>
+        <button class="btn-primary mt12" onclick="openModal()"><svg class="i "><use href="#i-plus"/></svg>Ajouter une facture</button>
       </div>
       <div id="pagination" class="pagination" style="display:none">
-        <button class="btn-ghost btn-sm" id="page-prev" onclick="changePage(-1)">← Précédent</button>
-        <span id="page-info" style="font-size:13px;color:var(--text2);padding:0 12px"></span>
-        <button class="btn-ghost btn-sm" id="page-next" onclick="changePage(1)">Suivant →</button>
+        <button class="btn-ghost btn-sm" id="page-prev" onclick="changePage(-1)"><svg class="i i-sm"><use href="#i-back"/></svg>Précédent</button>
+        <span class="page-info" id="page-info"></span>
+        <button class="btn-ghost btn-sm" id="page-next" onclick="changePage(1)">Suivant<svg class="i i-sm"><use href="#i-chevron"/></svg></button>
       </div>
     </div>
   </section>
 
-  <!-- ═══ KPI ═══ -->
+  <!-- ═══════════════════ STATISTIQUES ═══════════════════ -->
   <section id="tab-kpi" class="tab-section">
     <div class="page-header">
-      <h1>Statistiques</h1>
-      <select id="kpi-annee" onchange="loadKPI()" class="filter-select annee-select">
-        <option value="">Toutes les années</option>
-      </select>
+      <div>
+        <h1>Statistiques</h1>
+        <p class="page-sub">Répartition des factures par type, statut et mois.</p>
+      </div>
+      <div class="header-actions"><select id="kpi-annee" class="filter-select annee-select" onchange="setAnnee(this.value)"><option value="">Toutes les années</option></select></div>
     </div>
-    <div class="kpi-grid">
-      <div class="kpi-card blue"><div class="kpi-label">Total factures</div><div class="kpi-value" id="k-total">—</div></div>
-      <div class="kpi-card red"><div class="kpi-label">À traiter</div><div class="kpi-value" id="k-traiter">—</div></div>
-      <div class="kpi-card green"><div class="kpi-label">Récupérées</div><div class="kpi-value" id="k-recup">—</div></div>
-      <div class="kpi-card purple"><div class="kpi-label">Montant total estimé</div><div class="kpi-value" id="k-montant">—</div></div>
+    <div class="kpi-grid" id="kpi-cards"></div>
+    <div class="dash-grid dash-grid-charts">
+      <div class="card">
+        <div class="card-header"><div><h3>Par type</h3><div class="card-sub">Nombre de factures et montant</div></div></div>
+        <div id="k-types" class="hbars"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><h3>Par statut</h3><div class="card-sub">Nombre de factures</div></div></div>
+        <div id="k-chart-statut" class="chart"></div>
+      </div>
     </div>
-    <div class="dash-row mt16">
-      <div class="card flex-1"><div class="card-header"><h3>Répartition par type</h3></div><canvas id="k-chart-type" height="240"></canvas></div>
-      <div class="card flex-1"><div class="card-header"><h3>Répartition par statut</h3></div><canvas id="k-chart-statut" height="240"></canvas></div>
+    <div class="card">
+      <div class="card-header"><div><h3>Factures par mois</h3><div class="card-sub">Nombre, réparti par statut</div></div></div>
+      <div id="k-chart-mois-nb" class="chart"></div>
     </div>
-    <div class="card mt16"><div class="card-header"><h3>Montant par type (€)</h3></div><canvas id="k-chart-montant" height="180"></canvas></div>
-    <div class="card mt16"><div class="card-header"><h3>Nombre de factures par statut — par mois</h3></div><canvas id="k-chart-mois-statut-nb" height="180"></canvas></div>
-    <div class="card mt16"><div class="card-header"><h3>Montants par statut — par mois (€)</h3></div><canvas id="k-chart-mois-statut-mont" height="180"></canvas></div>
+    <div class="card mt16">
+      <div class="card-header"><div><h3>Montants par mois</h3><div class="card-sub">En euros, répartis par statut</div></div></div>
+      <div id="k-chart-mois-mont" class="chart"></div>
+    </div>
   </section>
 
-  <!-- ═══ IMPORT ═══ -->
+  <!-- ═══════════════════ IMPORT / EXPORT ═══════════════════ -->
   <section id="tab-import" class="tab-section">
-    <div class="page-header"><h1>Import / Export</h1></div>
-    <div class="dash-row">
-      <div class="card flex-1">
-        <div class="card-header"><h3>📥 Importer depuis CSV</h3></div>
-        <p style="color:var(--text2);margin-bottom:16px;font-size:13px">Importe les factures depuis un fichier CSV. Colonnes attendues : type, fournisseur, montant, periode, action, statut, detail, comment.</p>
-        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('csv-input').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
-          <div class="upload-icon">📄</div>
-          <p>Clique ou glisse ton fichier CSV ici</p>
-          <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(this.files[0])">
-        </div>
-        <div id="import-result" style="margin-top:12px"></div>
+    <div class="page-header">
+      <div>
+        <h1>Import / Export</h1>
+        <p class="page-sub">Échangez vos factures avec Excel au format CSV.</p>
       </div>
-      <div class="card flex-1">
-        <div class="card-header"><h3>⬇ Exporter en CSV</h3></div>
-        <p style="color:var(--text2);margin-bottom:16px;font-size:13px">Exporte toutes les factures dans un fichier CSV compatible Excel.</p>
-        <button class="btn-primary" onclick="exportCSV()" style="width:100%">⬇ Télécharger le CSV</button>
+    </div>
+    <div class="dash-grid">
+      <div class="card">
+        <div class="card-header"><div><h3>Importer depuis un CSV</h3><div class="card-sub">Ajoute les factures du fichier à celles déjà enregistrées</div></div></div>
+        <p class="card-sub">Colonnes attendues (séparées par des virgules) :</p>
+        <div class="code-cols">type, fournisseur, montant, periode, action, statut, detail, comment</div>
+        <label class="dropzone" id="dropzone" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+          <input type="file" accept=".csv,text/csv" hidden onchange="importCSV(this.files[0]); this.value=''">
+          <span class="dz-icon"><svg class="i i-lg"><use href="#i-upload"/></svg></span>
+          <span class="dz-title">Glissez votre fichier CSV ici</span>
+          <span class="dz-sub">ou cliquez pour parcourir</span>
+        </label>
+        <div id="import-result"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><h3>Exporter en CSV</h3><div class="card-sub">Toutes les factures, compatible Excel</div></div></div>
+        <div class="empty-state" style="padding:24px 0">
+          <div class="empty-icon"><svg class="i i-lg"><use href="#i-download"/></svg></div>
+          <p>Un fichier avec toutes les factures et leurs statuts.</p>
+          <button class="btn-primary mt12" onclick="exportCSV()"><svg class="i "><use href="#i-download"/></svg>Télécharger le CSV</button>
+        </div>
       </div>
     </div>
   </section>
 
 </main>
 
-<!-- MODAL FACTURE -->
+<!-- ═══════════════════ MODAL FACTURE ═══════════════════ -->
 <div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
-  <div class="modal">
+  <div class="modal" id="modal-facture" style="width:720px">
     <div class="modal-header">
+      <div class="modal-header-icon"><svg class="i "><use href="#i-receipt"/></svg></div>
       <h2 id="modal-title">Nouvelle facture</h2>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <button class="modal-close" onclick="closeFactureModal()" aria-label="Fermer"><svg class="i i-sm"><use href="#i-x"/></svg></button>
     </div>
     <div class="modal-body">
-      <input type="hidden" id="f-id">
-      <div class="form-row">
-        <div class="form-group flex-1">
-          <label>Type *</label>
-          <div style="display:flex;gap:6px">
-            <select id="f-type" style="flex:1"></select>
-            <button type="button" class="btn-ghost" onclick="addCategorie()" title="Ajouter une catégorie">+</button>
+      <form id="facture-form" onsubmit="event.preventDefault(); saveFacture()">
+        <input type="hidden" id="f-id">
+        <div class="form-section-title">Facture</div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Type *</label>
+            <div style="display:flex;gap:8px">
+              <select id="f-type" style="flex:1"></select>
+              <button type="button" class="btn-ghost btn-icon" onclick="addCategorie()" title="Ajouter une catégorie"><svg class="i i-sm"><use href="#i-plus"/></svg></button>
+            </div>
+          </div>
+          <div class="form-group flex-2">
+            <label>Fournisseur *</label>
+            <input type="text" id="f-fournisseur" placeholder="Nom du fournisseur">
           </div>
         </div>
-        <div class="form-group flex-2">
-          <label>Fournisseur *</label>
-          <input type="text" id="f-fournisseur" placeholder="Nom du fournisseur">
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Montant estimé (€)</label>
+            <input type="number" id="f-montant" placeholder="0,00" min="0" step="0.01">
+          </div>
+          <div class="form-group flex-1">
+            <label>Période (date de la facture)</label>
+            <input type="date" id="f-periode">
+          </div>
         </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group flex-1">
-          <label>Montant estimé (€)</label>
-          <input type="number" id="f-montant" placeholder="0" min="0" step="0.01">
+        <div class="form-section-title mt16">Suivi</div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Action requise</label>
+            <select id="f-action"><option>En attente</option><option>Plateforme en ligne</option><option>Appeler fournisseur</option><option>Envoyer mail</option><option>Relance comptable</option></select>
+          </div>
+          <div class="form-group flex-1">
+            <label>Statut</label>
+            <select id="f-statut"><option>À traiter</option><option>En cours</option><option>Récupérée</option><option>Annulée</option><option>Impossible à récupérer</option></select>
+          </div>
         </div>
-        <div class="form-group flex-1">
-          <label>Période (date facture)</label>
-          <input type="date" id="f-periode">
+        <div class="form-group mt8">
+          <label>Lien / détail</label>
+          <input type="text" id="f-detail" placeholder="Lien vers la plateforme ou information utile">
         </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group flex-1">
-          <label>Action requise</label>
-          <select id="f-action">
-            <option>En attente</option><option>Plateforme en ligne</option>
-            <option>Appeler fournisseur</option><option>Envoyer mail</option>
-            <option>Relance comptable</option>
-          </select>
+        <div class="form-group mt8">
+          <label>Commentaire</label>
+          <textarea id="f-comment" rows="3" placeholder="Notes, remarques…"></textarea>
         </div>
-        <div class="form-group flex-1">
-          <label>Statut</label>
-          <select id="f-statut">
-            <option>À traiter</option><option>En cours</option>
-            <option>Récupérée</option><option>Annulée</option>
-            <option>Impossible à récupérer</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group mt8">
-        <label>URL / Détail</label>
-        <input type="text" id="f-detail" placeholder="Lien plateforme ou information utile">
-      </div>
-      <div class="form-group mt8">
-        <label>Commentaire</label>
-        <textarea id="f-comment" rows="3" placeholder="Notes, remarques…"></textarea>
-      </div>
+        <button type="submit" hidden></button>
+      </form>
     </div>
     <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal()">Annuler</button>
-      <button class="btn-danger" id="btn-delete" onclick="deleteFacture()" style="display:none">🗑 Supprimer</button>
-      <button class="btn-primary" onclick="saveFacture()">💾 Enregistrer</button>
+      <button class="btn-danger" id="btn-delete" onclick="deleteFacture()" style="display:none"><svg class="i i-sm"><use href="#i-trash"/></svg>Supprimer</button>
+      <span class="spacer"></span>
+      <button class="btn-ghost" onclick="closeFactureModal()">Annuler</button>
+      <button class="btn-primary" id="btn-save" onclick="saveFacture()"><svg class="i i-sm"><use href="#i-check"/></svg>Enregistrer</button>
     </div>
   </div>
 </div>
 
-<div id="toast" class="toast"></div>
+<!-- Boîte de dialogue générique (confirmations, saisies) -->
+<div id="dialog-overlay" class="modal-overlay dialog-overlay">
+  <div class="modal dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div class="dialog-body">
+      <div class="dialog-icon" id="dialog-icon"></div>
+      <div class="dialog-text">
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-message"></p>
+      </div>
+    </div>
+    <form id="dialog-form" class="dialog-fields"></form>
+    <p id="dialog-error" class="dialog-error"></p>
+    <div class="modal-footer">
+      <span class="spacer"></span>
+      <button class="btn-ghost" id="dialog-cancel" type="button">Annuler</button>
+      <button class="btn-primary" id="dialog-ok" type="button">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- Palette de recherche (Ctrl+K) -->
+<div id="palette-overlay" class="palette-overlay" onclick="if (event.target === this) closePalette()">
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Recherche rapide">
+    <div class="palette-input">
+      <svg class="i"><use href="#i-search"/></svg>
+      <input type="text" id="palette-input" placeholder="Fournisseur, commentaire…" autocomplete="off" spellcheck="false">
+      <kbd>Échap</kbd>
+    </div>
+    <div class="palette-results" id="palette-results"></div>
+    <div class="palette-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> naviguer</span>
+      <span><kbd>Entrée</kbd> ouvrir</span>
+    </div>
+  </div>
+</div>
+
+<div id="chart-tip" class="chart-tip" role="tooltip"></div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"><span id="toast-msg"></span><button id="toast-action" class="toast-action" type="button"></button></div>
+
 <script src="app.js"></script>
 </body>
 </html>

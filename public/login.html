@@ -4,30 +4,83 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AB2S Sécurité — Connexion</title>
+<script>
+  // Même thème que le logiciel
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('ab2s-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preload" as="image" href="assets/login-bg.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
-<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)">
+<body class="auth-body">
 
-<div class="card" style="width:340px;padding:32px 28px;text-align:center">
-  <img src="assets/logo.png" alt="AB2S Sécurité" style="width:90px;margin-bottom:16px">
-  <h2 style="color:var(--blue);margin-bottom:4px">Suivi des factures</h2>
-  <p style="color:var(--text2);font-size:13px;margin-bottom:20px">AB2S Sécurité</p>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19M6.61 6.61A18.5 18.5 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24M2 2l20 20"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+</svg>
 
-  <form id="login-form" style="display:flex;flex-direction:column;gap:12px;text-align:left">
-    <div class="form-group">
-      <label>Identifiant</label>
-      <input type="text" id="l-username" placeholder="abder / yanis / samar" autocomplete="username">
+<!-- Photo (en transparence sous un voile teinté) -->
+<section class="auth-photo" aria-hidden="true">
+  <div class="auth-photo-img"></div>
+  <div class="auth-brand">
+    <div class="logo-tile"><img src="assets/logo.png" alt=""></div>
+    <div>
+      <div class="auth-brand-name">AB2S Sécurité</div>
+      <div class="auth-brand-sub">Suivi des factures</div>
     </div>
-    <div class="form-group">
-      <label>Mot de passe</label>
-      <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button type="submit" class="btn-primary" style="margin-top:8px">Se connecter</button>
-  </form>
+  </div>
+  <div class="auth-pitch">
+    <h2>Toutes vos factures fournisseurs, sous contrôle.</h2>
+    <p>Récupération, relances et statistiques : le suivi des factures, partagé par toute l'équipe.</p>
+    <div class="auth-tags"><span>Sécurité incendie</span><span>Gardiennage</span><span>Occitanie</span></div>
+  </div>
+</section>
 
-  <p id="login-error" style="color:var(--red);font-size:13px;margin-top:14px;display:none"></p>
-</div>
+<!-- Formulaire -->
+<main class="auth-panel">
+  <div class="auth-form-wrap">
+    <h1>Connexion</h1>
+    <p class="page-sub">Connectez-vous avec votre identifiant AB2S.</p>
+
+    <div id="login-info" class="login-info"><svg class="i"><use href="#i-clock"/></svg><span>Votre session a expiré après 30 minutes d'inactivité. Reconnectez-vous pour continuer.</span></div>
+
+    <form id="login-form" class="login-form">
+      <div class="form-group">
+        <label for="l-username">Identifiant</label>
+        <input type="text" id="l-username" placeholder="Votre identifiant" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="form-group">
+        <label for="l-password">Mot de passe</label>
+        <div class="pw-wrap">
+          <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Afficher le mot de passe" title="Afficher le mot de passe">
+            <svg class="i i-sm"><use href="#i-eye" id="pw-icon"/></svg>
+          </button>
+        </div>
+      </div>
+      <label class="remember">
+        <input type="checkbox" id="l-remember">
+        Se souvenir de mon identifiant
+      </label>
+      <button type="submit" class="btn-primary" id="login-btn">Se connecter</button>
+    </form>
+
+    <p id="login-error" class="login-error"></p>
+
+    <p class="auth-foot"><svg class="i i-sm"><use href="#i-lock"/></svg>Déconnexion automatique à la fermeture du navigateur ou après 30 minutes d'inactivité.</p>
+  </div>
+</main>
 
 <script src="login.js"></script>
 </body>
